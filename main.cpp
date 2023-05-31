@@ -5,6 +5,7 @@
 //  Created by Cole Dixon on 5/30/23.
 //
 
+#include <cmath>
 #include <iostream>
 #include "WaveFile.hpp"
 #define _USE_MATH_DEFINES
@@ -99,6 +100,27 @@ bool WriteWaveFile(const char *szFileName, float *pRawData, int32 nNumSamples, i
 	return true;
 }
 
+float Saw_Oscilator(float &phase, float frequency, float sampleRate){
+    phase += 2 * (float)M_PI * frequency/sampleRate;
+    if(phase >= 2 * (float)M_PI){
+        phase -= 2*(float)M_PI;
+    }
+    if(phase < 0){
+        phase += 2 * (float)M_PI;
+    }
+    return (phase/M_PI) - 1;
+}
+
+float Square_Oscilator(float &phase, float frequency, float sampleRate){
+    phase += 2 * (float)M_PI * frequency/sampleRate;
+    if(phase >= 2 * (float)M_PI){
+        phase -= 2*(float)M_PI;
+    }
+    if(phase < 0){
+        phase += 2 * (float)M_PI;
+    }
+    return phase < M_PI ? 1.0 : -1.0;
+}
 
 float Sine_Oscilator(float &phase, float frequency, float sampleRate){
     phase += 2 * (float)M_PI * frequency/sampleRate;
@@ -110,6 +132,22 @@ float Sine_Oscilator(float &phase, float frequency, float sampleRate){
     }
     return sin(phase);
 }
+
+//Note class to store pitch and volume
+class Note{
+    public:
+        char note;
+        int oct;
+        float amp;
+        Note();
+        Note(char a);
+        Note(char a, int x);
+        Note(char a, int x, float i);
+};
+Note::Note():note('C'),oct(4),amp(1.0f){}
+Note::Note(char a):note(a),oct(4),amp(1.0f){}
+Note::Note(char a, int x):note(a),oct(x),amp(1.0f){}
+Note::Note(char a, int x, float i):note(a),oct(x),amp(i){}
 
 float Calculate_Frequency(char note, int oct){
     return (float)(440*pow(2.0,((double)((oct-4)*12+(note-'A')))/12.0));
@@ -123,18 +161,22 @@ int main(int argc, const char * argv[]) {
     float *pData = new float[nNumSamples];
     float phase = 0.0;
     float frequency;
+
+    Note seq[4];
+    seq[0].note = 'C';
+    seq[1].note = 'E';
+    seq[2].note = 'G';
+    seq[3].note = 'B';
+    seq[3].oct = 5;
+
+    int step;
+    int sub = 4;
     for(int nIndex = 0; nIndex < nNumSamples; ++nIndex){
-        if(nIndex/sampleRate < 2){
-            frequency = Calculate_Frequency('A', 4);
-        }
-        else{
-            frequency = Calculate_Frequency('A', 5);
-        }
-        pData[nIndex] = Sine_Oscilator(phase, frequency, (float)sampleRate);
+        step = ((int)floor(sub*((float)nIndex/(float)sampleRate)))%4;
+        frequency = Calculate_Frequency(seq[step].note,seq[step].oct);
+        pData[nIndex] = Saw_Oscilator(phase, frequency, (float)sampleRate) * seq[step].amp;
     }
-    std::cout << Calculate_Frequency('A',4) << "\n";
-    std::cout << frequency << "\n";
-    WriteWaveFile<int16>("outmono.wav",pData,nNumSamples,nNumChannels,sampleRate);
+    //WriteWaveFile<int16>("outmono.wav",pData,nNumSamples,nNumChannels,sampleRate);
     delete[] pData;
     return 0;
 }
