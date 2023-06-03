@@ -6,9 +6,12 @@
 //
 
 #include <cmath>
+#include <map>
+#include <string>
 #include <iostream>
 #include "WaveFile.hpp"
 #define _USE_MATH_DEFINES
+#define MAX_BAND 12
 //type defs
 typedef int int32;
 typedef unsigned int uint32;
@@ -18,6 +21,7 @@ typedef signed char int8;
 typedef unsigned char uint8;
 #define CLAMP(value,min,max) {if(value < min) { value = min; } else if(value > max) { value = max; }}
 
+float Calculate_Frequency(std::string note, int oct);
 //wave file header
 struct SMinimalWaveFileHeader
 {
@@ -111,6 +115,21 @@ float Saw_Oscilator(float &phase, float frequency, float sampleRate){
     return (phase/M_PI) - 1;
 }
 
+float Saw_Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){
+    phase += 2 * (float)M_PI * frequency/sampleRate;
+    if(phase >= 2 * (float)M_PI){
+        phase -= 2*(float)M_PI;
+    }
+    if(phase < 0){
+        phase += 2 * (float)M_PI;
+    }
+    float res = 0;
+    for(int i = 1; i < MAX_BAND; i++){
+        res += sin(phase * i);
+    }
+    return res;
+}
+
 float Square_Oscilator(float &phase, float frequency, float sampleRate){
     phase += 2 * (float)M_PI * frequency/sampleRate;
     if(phase >= 2 * (float)M_PI){
@@ -120,6 +139,21 @@ float Square_Oscilator(float &phase, float frequency, float sampleRate){
         phase += 2 * (float)M_PI;
     }
     return phase < M_PI ? 1.0 : -1.0;
+}
+
+float Square_Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){
+    phase += 2 * (float)M_PI * frequency/sampleRate;
+    if(phase >= 2 * (float)M_PI){
+        phase -= 2*(float)M_PI;
+    }
+    if(phase < 0){
+        phase += 2 * (float)M_PI;
+    }
+    float res = 0;
+    for(int i = 1; i < MAX_BAND; i++){
+        res += sin(phase * (2*i-1));
+    }
+    return res;
 }
 
 float Sine_Oscilator(float &phase, float frequency, float sampleRate){
@@ -136,21 +170,34 @@ float Sine_Oscilator(float &phase, float frequency, float sampleRate){
 //Note class to store pitch and volume
 class Note{
     public:
-        char note;
-        int oct;
+        float freq;
         float amp;
+        void setNote(std::string c){
+            note = c;
+            freq = Calculate_Frequency(note,oct);
+            std::cout << freq << "\n";
+        }
+        void setOct(int i){
+            oct = i;
+            freq = Calculate_Frequency(note,oct);
+        }
         Note();
-        Note(char a);
-        Note(char a, int x);
-        Note(char a, int x, float i);
+        Note(std::string a);
+        Note(std::string a, int x);
+        Note(std::string a, int x, float i);
+    private:
+        std::string note;
+        int oct;
 };
-Note::Note():note('C'),oct(4),amp(1.0f){}
-Note::Note(char a):note(a),oct(4),amp(1.0f){}
-Note::Note(char a, int x):note(a),oct(x),amp(1.0f){}
-Note::Note(char a, int x, float i):note(a),oct(x),amp(i){}
+Note::Note():note("C"),oct(4),amp(1.0f){freq = Calculate_Frequency(note,oct);}
+Note::Note(std::string a):note(a),oct(4),amp(1.0f){freq = Calculate_Frequency(note,oct);}
+Note::Note(std::string a, int x):note(a),oct(x),amp(1.0f){freq = Calculate_Frequency(note,oct);}
+Note::Note(std::string a, int x, float i):note(a),oct(x),amp(i){freq = Calculate_Frequency(note,oct);}
 
-float Calculate_Frequency(char note, int oct){
-    return (float)(440*pow(2.0,((double)((oct-4)*12+(note-'A')))/12.0));
+float Calculate_Frequency(std::string note, int oct){
+    std::map<std::string, int> noteMap;
+    noteMap = {{"A",0},{"A#",1},{"B",2},{"C",3},{"C#",4},{"D",5},{"D#",6},{"E",7},{"F",8},{"F#",9},{"G",10},{"G#",11}};
+    return (float)(440*pow(2.0,((double)((oct-4)*12+(noteMap[note])))/12.0));
 }
 int main(int argc, const char * argv[]) {
     // insert code here...
@@ -163,20 +210,19 @@ int main(int argc, const char * argv[]) {
     float frequency;
 
     Note seq[4];
-    seq[0].note = 'C';
-    seq[1].note = 'E';
-    seq[2].note = 'G';
-    seq[3].note = 'B';
-    seq[3].oct = 5;
+    seq[0].setNote("C");
+    seq[1].setNote("E");
+    seq[2].setNote("G");
+    seq[3].setNote("B");
+    seq[3].setOct(5);
 
     int step;
     int sub = 4;
     for(int nIndex = 0; nIndex < nNumSamples; ++nIndex){
-        step = ((int)floor(sub*((float)nIndex/(float)sampleRate)))%4;
-        frequency = Calculate_Frequency(seq[step].note,seq[step].oct);
-        pData[nIndex] = Saw_Oscilator(phase, frequency, (float)sampleRate) * seq[step].amp;
+        step = (int) nIndex / sampleRate;
+        pData[nIndex] = Square_Oscilator_Band_Limited(phase, seq[step].freq, (float)sampleRate) * seq[step].amp;
     }
-    //WriteWaveFile<int16>("outmono.wav",pData,nNumSamples,nNumChannels,sampleRate);
+    WriteWaveFile<int16>("outmono.wav",pData,nNumSamples,nNumChannels,sampleRate);
     delete[] pData;
     return 0;
 }
