@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <map>
+#include <list>
 #include <string>
 #include <iostream>
 #include "WaveFile.hpp"
@@ -196,9 +197,111 @@ Note::Note(std::string a, int x, float i):note(a),oct(x),amp(i){freq = Calculate
 
 float Calculate_Frequency(std::string note, int oct){
     std::map<std::string, int> noteMap;
-    noteMap = {{"A",0},{"A#",1},{"B",2},{"C",3},{"C#",4},{"D",5},{"D#",6},{"E",7},{"F",8},{"F#",9},{"G",10},{"G#",11}};
-    return (float)(440*pow(2.0,((double)((oct-4)*12+(noteMap[note])))/12.0));
+    noteMap["A"] = 0;
+    noteMap["A#"] = 1;
+    noteMap["B"] = 2;
+    noteMap["C"] = 3;
+    noteMap["C#"] = 4;
+    noteMap["D"] = 5;
+    noteMap["D#"] = 6;
+    noteMap["E"] = 7;
+    noteMap["F"] = 8;
+    noteMap["F#"] = 9;
+    noteMap["G"] = 10;
+    noteMap["G#"] = 11;
+    //noteMap = {{"A",0},{"A#",1},{"B",2},{"C",3},{"C#",4},{"D",5},{"D#",6},{"E",7},{"F",8},{"F#",9},{"G",10},{"G#",11}};
+    return (float)(440*pow(2.0,((double)((oct-5)*12+(noteMap[note])))/12.0));
 }
+
+class Wave{
+    public:
+        float Oscilator(float &phase, float frequency, float sampleRate){return 0;};
+        float Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){return 0;};
+};
+class SinWav:public Wave{
+    public:
+        float Oscilator(float &phase, float frequency, float sampleRate){
+            return sin(phase);
+        }
+        float Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){
+            return sin(phase);
+        }
+};
+class SawWav:public Wave{
+    public:
+        float Oscilator(float &phase, float frequency, float sampleRate){
+            return (phase/M_PI) - 1;
+        }
+        float Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){
+            float res = 0;
+            for(int i = 1; i < MAX_BAND; i++){
+                res += sin(phase * i);
+            }
+            return res;
+        }
+};
+class SqrWav:public Wave{
+    public:
+        float Oscilator(float &phase, float frequency, float sampleRate){
+            return phase < M_PI ? 1.0 : -1.0;
+        }
+        float Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){
+            float res = 0;
+            for(int i = 1; i < MAX_BAND; i++){
+                res += sin(phase * (2*i-1));
+            }
+            return res;
+        }
+};
+class Noise:public Wave{
+    public:
+};
+
+class WaveTable{
+    public:
+        void setProbability(int row, float prob[]){
+            
+        }
+        WaveTable makeWaveTable(){
+            if(w==NULL){
+                w = WaveTable();
+                return w;
+            }
+            else{
+                return w;
+            }
+        }
+        void addWave(std::string s){
+            if(size == 4){return;}
+            if(s.compare("sine") == 0){
+                waveTable.push_back(SinWav());
+                size++;
+                probMatrix[size][size] = 1.0f;
+            }
+            else if(s.compare("square")==0){
+                waveTable.push_back(SqrWav());
+                size++;
+                probMatrix[size][size] = 1.0f;
+            }
+            else if(s.compare("saw")==0){
+                waveTable.push_back(SawWav());
+                size++;
+                probMatrix[size][size] = 1.0f;
+            }
+            else if(s.compare("noise")==0){
+                waveTable.push_back(Noise());
+                size++;
+                probMatrix[size][size] = 1.0f;
+            }
+        };
+    private:
+        static int size;
+        WaveTable w;
+        float probMatrix[4][4];
+        std::list<Wave> waveTable;
+        WaveTable(){};
+};
+
 int main(int argc, const char * argv[]) {
     // insert code here...
     int sampleRate = 44100;
