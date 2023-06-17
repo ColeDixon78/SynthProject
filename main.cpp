@@ -255,20 +255,31 @@ class SqrWav:public Wave{
 };
 class Noise:public Wave{
     public:
+        float Oscilator(float &phase, float frequency, float sampleRate){
+            return ((float)(rand()%200)/100.0f)-1;
+        }
 };
 
 class WaveTable{
     public:
+        float phase = 0.0f;
         void setProbability(int row, float prob[]){
-            
+            int sizeProb = sizeof(prob)/sizeof(prob[0]);
+            if(row > size||size != sizeProb||row < 0){
+                return;
+            }
+            for(int i = 0; i < size; ++i){
+                probMatrix[row][i] = prob[i];
+            }
+
         }
         WaveTable makeWaveTable(){
-            if(w==NULL){
-                w = WaveTable();
-                return w;
+            if(instancePtr==NULL){
+                *instancePtr = WaveTable();
+                return *instancePtr;
             }
             else{
-                return w;
+                return *instancePtr;
             }
         }
         void addWave(std::string s){
@@ -295,13 +306,30 @@ class WaveTable{
             }
         };
     private:
+        int current;
+        int next;
         static int size;
-        WaveTable w;
+        static WaveTable *instancePtr;
         float probMatrix[4][4];
         std::list<Wave> waveTable;
-        WaveTable(){};
+        int getNextWave(){
+            float gen = (float) (rand()%100)/100.0f;
+            for(int i = 0; i < size; ++i){
+                if(gen < probMatrix[current][i]){
+                    return i;
+                }
+            }
+        }
+        WaveTable(){
+            current = 0;
+            next = getNextWave();
+        };
 };
 
+class Synthesizer{
+    public:
+
+};
 int main(int argc, const char * argv[]) {
     // insert code here...
     int sampleRate = 44100;
