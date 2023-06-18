@@ -10,6 +10,7 @@
 #include <list>
 #include <string>
 #include <iostream>
+#include <iomanip>
 #include "WaveFile.hpp"
 #define _USE_MATH_DEFINES
 #define MAX_BAND 12
@@ -176,7 +177,7 @@ class Note{
         void setNote(std::string c){
             note = c;
             freq = Calculate_Frequency(note,oct);
-            std::cout << freq << "\n";
+            //std::cout << freq << "\n";
         }
         void setOct(int i){
             oct = i;
@@ -214,120 +215,175 @@ float Calculate_Frequency(std::string note, int oct){
 }
 
 class Wave{
+    private:
+        std::string type;
     public:
-        float Oscilator(float &phase, float frequency, float sampleRate){return 0;};
-        float Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){return 0;};
+        float Oscilator(float &phase){return 0;};
+        float Oscilator_Band_Limited(float &phase){return 0;};
+        std::string getType(){return type;};
+        void setType(std::string s){type = s;};
 };
 class SinWav:public Wave{
     public:
-        float Oscilator(float &phase, float frequency, float sampleRate){
+        float Oscilator(float &phase){
             return sin(phase);
         }
-        float Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){
+        float Oscilator_Band_Limited(float &phase){
             return sin(phase);
         }
+        SinWav(){setType("sine");};
 };
 class SawWav:public Wave{
     public:
-        float Oscilator(float &phase, float frequency, float sampleRate){
+        float Oscilator(float &phase){
             return (phase/M_PI) - 1;
         }
-        float Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){
+        float Oscilator_Band_Limited(float &phase){
             float res = 0;
             for(int i = 1; i < MAX_BAND; i++){
                 res += sin(phase * i);
             }
             return res;
         }
+        SawWav(){setType("saw");};
 };
 class SqrWav:public Wave{
     public:
-        float Oscilator(float &phase, float frequency, float sampleRate){
+        float Oscilator(float &phase){
             return phase < M_PI ? 1.0 : -1.0;
         }
-        float Oscilator_Band_Limited(float &phase, float frequency, float sampleRate){
+        float Oscilator_Band_Limited(float &phase){
             float res = 0;
             for(int i = 1; i < MAX_BAND; i++){
                 res += sin(phase * (2*i-1));
             }
             return res;
         }
+        SqrWav(){setType("square");};
 };
 class Noise:public Wave{
     public:
-        float Oscilator(float &phase, float frequency, float sampleRate){
+        float Oscilator(float &phase){
             return ((float)(rand()%200)/100.0f)-1;
         }
+        Noise(){setType("noise");};
 };
 
 class WaveTable{
+     private:
+        static int size;
+        static float probMatrix[4][4];
+        static std::list<Wave> waveTable;
     public:
-        float phase = 0.0f;
-        void setProbability(int row, float prob[]){
-            int sizeProb = sizeof(prob)/sizeof(prob[0]);
-            if(row > size||size != sizeProb||row < 0){
-                return;
-            }
+        WaveTable(){
+            size = 0;
+        };
+        void print(){
+            std::list<Wave>::iterator it = waveTable.begin();
+            std::cout << "      ";
             for(int i = 0; i < size; ++i){
-                probMatrix[row][i] = prob[i];
+                std::cout  << std::right << std::setw(8) << (*it).getType();
+                it++;
+            }
+            std::cout << "\n";
+            it = waveTable.begin();
+            for(int i = 0; i < size; ++i){
+                std::cout << std::left;
+                std::cout  << std::setw(6) << (*it).getType() << std::right;
+                for(int j = 0; j < size; ++j){
+                    std::cout  << std::setw(8) << probMatrix[i][j];
+                }
+                it++;
+                std::cout << "\n";
+            }
+        }
+        void setProbability(int row, float prob[]){
+            //if(row > size||size != sizeProb||row < 0){
+            //    return;
+            //}
+            float sum = 0.0;
+            for(int i = 0; i < size; ++i){
+                sum = sum + prob[i];
+                probMatrix[row][i] = sum;
             }
 
-        }
-        WaveTable makeWaveTable(){
-            if(instancePtr==NULL){
-                *instancePtr = WaveTable();
-                return *instancePtr;
-            }
-            else{
-                return *instancePtr;
-            }
         }
         void addWave(std::string s){
             if(size == 4){return;}
             if(s.compare("sine") == 0){
+                std::cout << "sine\n";
                 waveTable.push_back(SinWav());
+                probMatrix[size][size] = 1.0;
                 size++;
-                probMatrix[size][size] = 1.0f;
             }
             else if(s.compare("square")==0){
+                std::cout << "square\n";
                 waveTable.push_back(SqrWav());
+                probMatrix[size][size] = 1.0;
                 size++;
-                probMatrix[size][size] = 1.0f;
             }
             else if(s.compare("saw")==0){
+                std::cout << "saw\n";
                 waveTable.push_back(SawWav());
+                probMatrix[size][size] = 1.0;
                 size++;
-                probMatrix[size][size] = 1.0f;
             }
             else if(s.compare("noise")==0){
+                std::cout << "noise\n";
                 waveTable.push_back(Noise());
+                probMatrix[size][size] = 1.0;
                 size++;
-                probMatrix[size][size] = 1.0f;
+            }
+            else{
+                std::cout << "not a waveform\n";
             }
         };
-    private:
-        int current;
-        int next;
-        static int size;
-        static WaveTable *instancePtr;
-        float probMatrix[4][4];
-        std::list<Wave> waveTable;
-        int getNextWave(){
-            float gen = (float) (rand()%100)/100.0f;
-            for(int i = 0; i < size; ++i){
-                if(gen < probMatrix[current][i]){
-                    return i;
-                }
-            }
-        }
-        WaveTable(){
-            current = 0;
-            next = getNextWave();
-        };
+        friend class Synthesizer;
 };
+int WaveTable::size = 0;
+float WaveTable::probMatrix[4][4] = {0.0};
 
 class Synthesizer{
     public:
+        Synthesizer(WaveTable w):w(w){};
+        float getData(){
+            Wave current;
+            Wave next;
+            std::list<Wave>::iterator it = w.waveTable.begin();
+            std::advance(it,currentIndex);
+            current = *it;
+            it = w.waveTable.begin();
+            std::advance(it,nextIndex);
+            next = *it;
+            advancePhase();
+            return current.Oscilator(phase) * currAmp + next.Oscilator(phase) * nextAmp;
+        }
+
+    private:
+        WaveTable w;
+        int sampleRate = 44100;
+        int nNumSeconds = 4;
+        int nNumChannels = 1;
+        int nNumSamples = sampleRate * nNumSeconds * nNumChannels;
+        float *pData = new float[nNumSamples];
+        float phase = 0.0;
+        float frequency;
+        int currAmp;
+        int nextAmp;
+        int currentIndex;
+        int nextIndex;
+        void advancePhase(){
+            phase += 2 * (float)M_PI * frequency/sampleRate;
+        }
+        int getNextWave(){
+            float gen = (float) (rand()%100)/100.0f;
+            for(int i = 0; i < w.size; ++i){
+                if(gen < WaveTable::probMatrix[currentIndex][i]){
+                    return i;
+                }
+            }
+            return -1;
+        }
 
 };
 int main(int argc, const char * argv[]) {
@@ -347,6 +403,15 @@ int main(int argc, const char * argv[]) {
     seq[3].setNote("B");
     seq[3].setOct(5);
 
+    WaveTable WT = WaveTable();
+    WT.addWave("sine");
+    WT.addWave("square");
+    WT.addWave("saw");
+    WT.addWave("noise");
+    float sinProb[] = {0.2,0.4,0.2,0.2};
+    WT.setProbability(0,sinProb);
+
+    WT.print();
     int step;
     int sub = 4;
     for(int nIndex = 0; nIndex < nNumSamples; ++nIndex){
