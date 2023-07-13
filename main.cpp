@@ -345,44 +345,63 @@ float WaveTable::probMatrix[4][4] = {0.0};
 
 class Synthesizer{
     public:
-        Synthesizer(WaveTable w):w(w){};
+        Synthesizer(WaveTable w):w(w){
+            sampleRate = 44100;
+            nNumSeconds = 4;
+            nNumChannels = 1;
+            nNumSamples = sampleRate * nNumSeconds * nNumChannels;
+            pData = new float[nNumSamples];
+            phase = 0.0;
+            currAmp = 0.0;
+            nextAmp = 0.0;
+        };
         float getData(){
-            Wave current;
-            Wave next;
-            std::list<Wave>::iterator it = w.waveTable.begin();
-            std::advance(it,currentIndex);
-            current = *it;
-            it = w.waveTable.begin();
-            std::advance(it,nextIndex);
-            next = *it;
             advancePhase();
-            return current.Oscilator(phase) * currAmp + next.Oscilator(phase) * nextAmp;
+            return currentWave.Oscilator(phase) * currAmp + nextWave.Oscilator(phase) * nextAmp;
         }
 
     private:
         WaveTable w;
-        int sampleRate = 44100;
-        int nNumSeconds = 4;
-        int nNumChannels = 1;
-        int nNumSamples = sampleRate * nNumSeconds * nNumChannels;
-        float *pData = new float[nNumSamples];
-        float phase = 0.0;
+        int sampleRate;
+        int nNumSeconds;
+        int nNumChannels;
+        int nNumSamples;
+        float *pData;
+        float phase;
         float frequency;
-        int currAmp;
-        int nextAmp;
+        float currAmp;
+        float nextAmp;
+        Wave currentWave;
+        Wave nextWave;
         int currentIndex;
         int nextIndex;
         void advancePhase(){
             phase += 2 * (float)M_PI * frequency/sampleRate;
+            if(phase >= 2 * (float)M_PI){
+                phase -= 2*(float)M_PI;
+            }
+            if(phase < 0){
+                phase += 2 * (float)M_PI;
+            }
+            nextAmp += 0.01;
+            currAmp = 1.0 - nextAmp;
+            if(nextAmp>0.99){
+                nextAmp = 0.0;
+                getNextWave();
+            }
         }
-        int getNextWave(){
+        void getNextWave(){
+            currentIndex = nextIndex;
+            currentWave = nextWave;
+            std::list<Wave>::iterator it = w.waveTable.begin();
             float gen = (float) (rand()%100)/100.0f;
             for(int i = 0; i < w.size; ++i){
                 if(gen < WaveTable::probMatrix[currentIndex][i]){
-                    return i;
+                    std::advance(it,i);
+                    nextWave = *it;
+                    return;
                 }
             }
-            return -1;
         }
 
 };
