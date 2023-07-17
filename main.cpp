@@ -271,12 +271,15 @@ class Noise:public Wave{
 
 class WaveTable{
      private:
-        static int size;
-        static float probMatrix[4][4];
-        static std::list<Wave> waveTable;
+        int size;
+        float probMatrix[4][4];
+        std::list<Wave> waveTable;
     public:
         WaveTable(){
             size = 0;
+            for(int i = 0; i < 16; ++i){
+                probMatrix[i/4][i%4] = 0;
+            }
         };
         void print(){
             std::list<Wave>::iterator it = waveTable.begin();
@@ -340,8 +343,7 @@ class WaveTable{
         };
         friend class Synthesizer;
 };
-int WaveTable::size = 0;
-float WaveTable::probMatrix[4][4] = {0.0};
+
 
 class Synthesizer{
     public:
@@ -350,13 +352,12 @@ class Synthesizer{
             nNumSeconds = 4;
             nNumChannels = 1;
             nNumSamples = sampleRate * nNumSeconds * nNumChannels;
-            pData = new float[nNumSamples];
             phase = 0.0;
             currAmp = 0.0;
             nextAmp = 0.0;
         };
-        float getData(){
-            advancePhase();
+        float getData(float frequency){
+            advancePhase(frequency);
             return currentWave.Oscilator(phase) * currAmp + nextWave.Oscilator(phase) * nextAmp;
         }
 
@@ -366,16 +367,14 @@ class Synthesizer{
         int nNumSeconds;
         int nNumChannels;
         int nNumSamples;
-        float *pData;
         float phase;
-        float frequency;
         float currAmp;
         float nextAmp;
         Wave currentWave;
         Wave nextWave;
         int currentIndex;
         int nextIndex;
-        void advancePhase(){
+        void advancePhase(float frequency){
             phase += 2 * (float)M_PI * frequency/sampleRate;
             if(phase >= 2 * (float)M_PI){
                 phase -= 2*(float)M_PI;
@@ -396,7 +395,7 @@ class Synthesizer{
             std::list<Wave>::iterator it = w.waveTable.begin();
             float gen = (float) (rand()%100)/100.0f;
             for(int i = 0; i < w.size; ++i){
-                if(gen < WaveTable::probMatrix[currentIndex][i]){
+                if(gen < w.probMatrix[currentIndex][i]){
                     std::advance(it,i);
                     nextWave = *it;
                     return;
@@ -429,13 +428,18 @@ int main(int argc, const char * argv[]) {
     WT.addWave("noise");
     float sinProb[] = {0.2,0.4,0.2,0.2};
     WT.setProbability(0,sinProb);
+    WT.setProbability(1,sinProb);
+    WT.setProbability(2,sinProb);
+    WT.setProbability(3,sinProb);
+
+    Synthesizer synth = Synthesizer(WT);
 
     WT.print();
     int step;
     int sub = 4;
     for(int nIndex = 0; nIndex < nNumSamples; ++nIndex){
         step = (int) nIndex / sampleRate;
-        pData[nIndex] = Square_Oscilator_Band_Limited(phase, seq[step].freq, (float)sampleRate) * seq[step].amp;
+        pData[nIndex] =  synth.getData(seq[step].freq);
     }
     WriteWaveFile<int16>("outmono.wav",pData,nNumSamples,nNumChannels,sampleRate);
     delete[] pData;
